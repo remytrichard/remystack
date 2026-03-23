@@ -1,0 +1,19 @@
+[Unit]
+Description=Claude Code Heartbeat Runner ({{agent_name}})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory={{working_directory}}
+ExecStart={{claude_path}} --yes --prompt-file heartbeat-prompt.md
+TimeoutStartSec=300
+
+# Environment
+Environment=HOME={{home_directory}}
+Environment=PATH={{path}}
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=claude-heartbeat

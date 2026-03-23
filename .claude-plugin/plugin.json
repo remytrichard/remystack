@@ -1,0 +1,18 @@
+{
+  "name": "remystack",
+  "description": "TruClaw — turn Claude Code into a persistent, always-on AI companion with identity, memory, heartbeats, and proactive messaging via Telegram.",
+  "version": "0.1.0",
+  "author": "Rémy Trichard <3063735+remytrichard@users.noreply.github.com>",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/remytrichard/remystack",
+  "keywords": [
+    "telegram",
+    "companion",
+    "memory",
+    "heartbeat",
+    "identity",
+    "truclaw",
+    "openclaw",
+    "persistent-agent"
+  ]
+}

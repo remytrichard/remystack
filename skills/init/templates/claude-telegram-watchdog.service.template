@@ -1,0 +1,6 @@
+[Unit]
+Description=Claude Telegram Listener Watchdog ({{agent_name}})
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'if ! /usr/bin/tmux has-session -t {{tmux_session_name}} 2>/dev/null; then systemctl --user restart claude-telegram.service; fi'

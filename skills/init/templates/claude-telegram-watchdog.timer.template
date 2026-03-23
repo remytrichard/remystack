@@ -1,0 +1,9 @@
+[Unit]
+Description=Claude Telegram Listener Watchdog Timer ({{agent_name}})
+
+[Timer]
+OnCalendar=*:0/2
+Persistent=true
+
+[Install]
+WantedBy=timers.target

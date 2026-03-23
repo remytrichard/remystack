@@ -1,0 +1,16 @@
+{
+  "description": "Remystack hooks — auto-inject outbox context on incoming messages",
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "telegram",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat memory/pending-outbox.json 2>/dev/null || echo '[]'"
+          }
+        ]
+      }
+    ]
+  }
+}

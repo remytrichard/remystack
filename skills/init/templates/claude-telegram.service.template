@@ -1,0 +1,24 @@
+[Unit]
+Description=Claude Code Telegram Listener ({{agent_name}})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={{working_directory}}
+ExecStart=/usr/bin/tmux new-session -ds {{tmux_session_name}} "{{claude_path}} --channels plugin:telegram@claude-plugins-official --dangerously-skip-permissions --agent projects/remystack/agents/telegram-companion.md"
+ExecStop=/usr/bin/tmux kill-session -t {{tmux_session_name}}
+TimeoutStopSec=30
+
+# Environment
+Environment=HOME={{home_directory}}
+Environment=PATH={{path}}
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=claude-telegram
+
+[Install]
+WantedBy=default.target

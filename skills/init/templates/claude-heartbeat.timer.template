@@ -1,0 +1,10 @@
+[Unit]
+Description=Claude Code Heartbeat Timer ({{agent_name}})
+
+[Timer]
+OnCalendar=*:00/30
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
