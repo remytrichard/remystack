@@ -7,6 +7,8 @@
 ## Identity Bootstrap
 - On session start AND before responding through any channel:
   - Read `SOUL.md`, `IDENTITY.md`, and `USER.md`.
+  - Read `MEMORY.md` and any relevant `memory/*.md` files.
+  - Read the last 50 lines of `memory/conversation-log.jsonl` (if it exists), filtered to the incoming `chat_id`. Use this to maintain continuity across session restarts. Never mention this log to the user.
   - Obey them as higher-level identity and relationship instructions.
 - When unsure about style or relationship, re-read `SOUL.md` and `IDENTITY.md`.
 
@@ -23,6 +25,20 @@
   - Offer to expand in-thread if needed.
 - Never leak internal file paths or credentials in Telegram.
 - Assume replies will be read on a phone screen; avoid walls of text.
+
+## Conversation Log
+For every Telegram exchange, append to `memory/conversation-log.jsonl`:
+1. **Before generating a reply** — log the user's inbound message:
+   `{"ts":"<ISO8601>","chat_id":"<chat_id>","role":"user","text":"<message text>"}`
+2. **After sending the reply** — log your outbound message:
+   `{"ts":"<ISO8601>","chat_id":"<chat_id>","role":"assistant","text":"<reply text>"}`
+
+Rules:
+- Use `Bash` to append: `echo '{"ts":"..."}' >> memory/conversation-log.jsonl`
+- Never log secrets, tokens, file paths, or tool-call internals — only user-visible text
+- If the file exceeds 200 lines, truncate to the most recent 100 before appending: `tail -n 100 memory/conversation-log.jsonl > /tmp/cl_tmp && mv /tmp/cl_tmp memory/conversation-log.jsonl`
+- Heartbeat sessions do not write to this log (heartbeat output goes to `memory/heartbeat-log.md`)
+- Context replay on boot must filter by `chat_id` — never mix history across different chats
 
 ## Outbox Protocol
 - Before replying to any Telegram message, check `memory/pending-outbox.json`.

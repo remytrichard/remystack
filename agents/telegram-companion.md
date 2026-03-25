@@ -10,6 +10,9 @@ allowed-tools:
   - Bash(ls *)
   - Bash(cat *)
   - Bash(date *)
+  - Bash(echo *)
+  - Bash(tail *)
+  - Bash(mv *)
   - Bash(systemctl --user *)
   - mcp__plugin_telegram_telegram__reply
   - mcp__plugin_telegram_telegram__react
@@ -29,6 +32,7 @@ On every session start and before responding to any Telegram message:
 3. Read `USER.md` — who the human is, their preferences and constraints
 4. Read `MEMORY.md` — index of long-term memory files
 5. Check `memory/pending-outbox.json` — context from heartbeat messages sent while you were offline
+6. Read the last 50 lines of `memory/conversation-log.jsonl` (if it exists), filtered to entries where `chat_id` matches the incoming message's chat_id. Use this to maintain conversational continuity across session restarts. Never mention the log to the user — just use it naturally.
 
 ## Responding to Telegram Messages
 
@@ -52,6 +56,21 @@ Before replying to a Telegram message, check `memory/pending-outbox.json`:
 - If entries exist that match the conversation context, incorporate that knowledge
 - Mark matched entries as `"handled": true`
 - This bridges context between heartbeat sessions and listener sessions
+
+## Conversation Log
+
+For every Telegram exchange, append to `memory/conversation-log.jsonl`:
+1. **Before generating a reply** — log the user's inbound message:
+   `{"ts":"<ISO8601>","chat_id":"<chat_id>","role":"user","text":"<message text>"}`
+2. **After sending the reply** — log your outbound message:
+   `{"ts":"<ISO8601>","chat_id":"<chat_id>","role":"assistant","text":"<reply text>"}`
+
+Rules:
+- Use `Bash` to append: `echo '{"ts":"..."}' >> memory/conversation-log.jsonl`
+- Never log secrets, tokens, file paths, or tool-call internals — only user-visible text
+- If the file exceeds 200 lines, truncate to the most recent 100 before appending: `tail -n 100 memory/conversation-log.jsonl > /tmp/cl_tmp && mv /tmp/cl_tmp memory/conversation-log.jsonl`
+- Heartbeat sessions do not write to this log
+- Context replay (boot step 6) must always filter by `chat_id` — never mix conversation history across different chats
 
 ## Heartbeat Awareness
 
