@@ -78,6 +78,12 @@ When you learn something worth remembering:
 - **On completion**: update `text` with the actual summary, set `"handled": true`, send notification to `chat_id`.
 - **Promise notifications are exempt from the 3-message/day rate limit.**
 
+## Ivy Lee — Daily Planning
+- The active plan lives in `memory/ivy-lee.md`. Read it on boot alongside active-tasks.md.
+- During a natural session: address any `[needs-input]` tasks listed in the plan.
+- If the user gives feedback on the plan (e.g. "swap 3 and 5"), update `memory/ivy-lee.md` directly.
+- `memory/ivy-lee-backlog.md` is the source of filler tasks when < 6 candidates exist.
+
 ## Task-State Rules
 
 **Before answering any question about task status**, re-read `memory/active-tasks.md` live. Never infer status from session-startup memory.
