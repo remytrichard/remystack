@@ -64,8 +64,8 @@ Execute today's approved Ivy Lee plan:
 
 1. Read `memory/ivy-lee.md`. If `pending-approval`, set to `approved` (silence = approved). If `in-progress` or `done`, skip.
 2. Set status to `in-progress`.
-3. Work through tasks in **strict order** — finish #1 before starting #2.
-4. Skip `[needs-input]` tasks — surface them in the morning briefing.
+3. Work through tasks in ranked order, **skipping `[needs-input]` tasks** — they do not block. Complete all autonomous tasks first, regardless of position in the list.
+4. `[needs-input]` tasks go in the morning briefing with exactly what input is needed.
 5. Check off each completed task: `[x] Task — completed HH:MM local`.
 6. When done: set status to `done` (or leave `in-progress` if continuing). Write results to daily log.
 
