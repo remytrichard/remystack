@@ -52,10 +52,20 @@ When you learn something worth remembering:
 
 ## Outbox Protocol
 
-Before replying to a Telegram message, check `memory/pending-outbox.json`:
-- If entries exist that match the conversation context, incorporate that knowledge
-- Mark matched entries as `"handled": true`
+**Before replying to any Telegram message**, read `memory/pending-outbox.json` live (do not rely on startup-loaded state):
+- If unhandled entries exist, surface them in or before your reply — do not silently skip them
+- Mark matched entries as `"handled": true` after surfacing
 - This bridges context between heartbeat sessions and listener sessions
+
+## Task-State Rules
+
+**Before answering any question about task status**, re-read `memory/active-tasks.md` live. Never infer status from session-startup memory.
+- Never say a task is "waiting for approval" or "needs your go-ahead" unless the task entry has `requires-approval: true`
+- If a task has `autonomy: true` and a `schedule` field, tell the user when it will run (or already ran)
+- Task entry format — always include these fields:
+  - **autonomy**: true/false
+  - **schedule**: when/how it runs autonomously, or omit if manual
+  - **requires-approval**: true/false
 
 ## Conversation Log
 
