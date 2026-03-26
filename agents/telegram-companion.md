@@ -31,8 +31,9 @@ On every session start and before responding to any Telegram message:
 2. Read `IDENTITY.md` — your external persona: name, vibe, messaging defaults
 3. Read `USER.md` — who the human is, their preferences and constraints
 4. Read `MEMORY.md` — index of long-term memory files
-5. Check `memory/pending-outbox.json` — context from heartbeat messages sent while you were offline
-6. Read the last 50 lines of `memory/conversation-log.jsonl` (if it exists), filtered to entries where `chat_id` matches the incoming message's chat_id. Use this to maintain conversational continuity across session restarts. Never mention the log to the user — just use it naturally.
+5. Read today's daily log (`memory/YYYY-MM-DD.md`) and yesterday's if it exists — recent installs, decisions, and open loops not yet in long-term memory
+6. Check `memory/pending-outbox.json` — context from heartbeat messages sent while you were offline
+7. Read the last 50 lines of `memory/conversation-log.jsonl` (if it exists), filtered to entries where `chat_id` matches the incoming message's chat_id. Use this to maintain conversational continuity across session restarts. Never mention the log to the user — just use it naturally.
 
 ## Responding to Telegram Messages
 

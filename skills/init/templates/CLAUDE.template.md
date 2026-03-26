@@ -8,6 +8,7 @@
 - On session start AND before responding through any channel:
   - Read `SOUL.md`, `IDENTITY.md`, and `USER.md`.
   - Read `MEMORY.md` and any relevant `memory/*.md` files.
+  - Read today's daily log (`memory/YYYY-MM-DD.md`) and yesterday's if it exists — recent installs, decisions, and open loops.
   - Read the last 50 lines of `memory/conversation-log.jsonl` (if it exists), filtered to the incoming `chat_id`. Use this to maintain continuity across session restarts. Never mention this log to the user.
   - Obey them as higher-level identity and relationship instructions.
 - When unsure about style or relationship, re-read `SOUL.md` and `IDENTITY.md`.

@@ -58,6 +58,7 @@
 5. Review `memory/` files for notable patterns or themes.
 6. Check if any tasks have been idle for more than 48 hours.
 7. Compose the morning briefing: weather first, then any actionable items.
+8. **Write daily log entry**: append any autonomous completions, installs, or notable decisions to `memory/YYYY-MM-DD.md` (create if needed). Format: `## Heartbeat [HH:MM]\n- <item>`. Do not write routine no-op runs.
 
 ## Weekly (first run on Monday)
 7. Run a memory cleanup pass:
