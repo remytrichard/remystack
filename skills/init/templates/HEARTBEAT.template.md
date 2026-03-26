@@ -28,7 +28,9 @@
 
 ## Every Run (every 30 minutes)
 1. Check `memory/active-tasks.md` for anything overdue or marked "stuck".
-2. Check `memory/pending-outbox.json` for unhandled items older than 1 hour.
+2. Check `memory/pending-outbox.json` for unhandled items older than 1 hour:
+   - `type: "notify-on-complete"`: check if the associated work is done (read active-tasks.md or daily log). If done, send completion notification to `chat_id` and mark `"handled": true`. If still in progress, leave it.
+   - All other types: surface in next Telegram message or send proactively if urgent.
 3. If the user sent a message in the last 30 minutes, skip proactive messaging.
 
 ## Daily (first run after 9:00 {{user_timezone}})

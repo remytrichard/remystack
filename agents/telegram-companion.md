@@ -54,9 +54,29 @@ When you learn something worth remembering:
 ## Outbox Protocol
 
 **Before replying to any Telegram message**, read `memory/pending-outbox.json` live (do not rely on startup-loaded state):
-- If unhandled entries exist, surface them in or before your reply — do not silently skip them
-- Mark matched entries as `"handled": true` after surfacing
-- This bridges context between heartbeat sessions and listener sessions
+- For entries with no `type` or `type: "info"`: surface them in or before your reply. Mark `"handled": true` after surfacing.
+- For entries with `type: "notify-on-complete"`: unfulfilled verbal promises. If the work is now done, send the completion notification to `chat_id` and mark `"handled": true`. If still in progress, leave it — heartbeat will follow up.
+- This bridges context between heartbeat sessions and listener sessions.
+
+## Promise Tracking
+
+**A verbal promise in Telegram is a write-ahead obligation — persist it before you speak.**
+
+- **When you tell the user you will notify them** (e.g., "back in a moment", "I'll let you know when done"), write this to `memory/pending-outbox.json` *before* sending the reply:
+  ```json
+  {
+    "ts": "<ISO8601>",
+    "type": "notify-on-complete",
+    "topic": "<short-slug>",
+    "promise": "<what you are about to say>",
+    "chat_id": "<chat_id>",
+    "handled": false,
+    "text": "Will update when complete"
+  }
+  ```
+- **Order**: write entry → send reply → do work → notify on completion.
+- **On completion**: update `text` with the actual summary, set `"handled": true`, send notification to `chat_id`.
+- **Promise notifications are exempt from the 3-message/day rate limit.**
 
 ## Task-State Rules
 
