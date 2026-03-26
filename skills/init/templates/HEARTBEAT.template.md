@@ -32,9 +32,32 @@
 3. If the user sent a message in the last 30 minutes, skip proactive messaging.
 
 ## Daily (first run after 9:00 {{user_timezone}})
-4. Review `memory/` files for notable patterns or themes.
-5. Check if any tasks have been idle for more than 48 hours.
-6. Compose a brief morning briefing if there's anything actionable.
+4. **Weather report** — always fetch and include, even if nothing else is noteworthy. Use wttr.in or Open-Meteo for the user's location (see USER.md). Format:
+
+   ```
+   [City] — [Day], [DD] [Mon] [YYYY]
+
+   Current ([HH:MM] local): [ICON] [Condition] · [Temp]°C (feels like [Feels]°C)[, [Precipitation]]
+
+   Morning: [Condition], [TempRange]°C (feels like [FeelsRange]°C)[, [Precipitation]]
+   Afternoon: [Condition], [TempRange]°C (feels like [FeelsRange]°C)[, [Precipitation]]
+   Evening: [Condition], [TempRange]°C (feels like [FeelsRange]°C)[, [Precipitation]]
+
+   Sun: Rise [HH:MM AM/PM] · Set [HH:MM AM/PM]
+   ```
+
+   Rules:
+   - All times in the user's local timezone
+   - Icons: ☀️ sunny/clear · ⛅ partly cloudy · ☁️ cloudy · 🌧️ rain · ⛈️ thunderstorm · 🌨️ snow · 🌫️ fog · 💨 windy
+   - Include precipitation if >0% chance or >0mm (e.g., "2mm rain", "40% chance")
+   - Add any severe weather alerts or warnings from local meteorological authority
+   - Use Evening/Night time periods if briefing fires outside 6 AM–6 PM
+   - Keep concise — no extra commentary
+   - **This is the only item guaranteed to send every day.** Weather alone justifies the briefing.
+
+5. Review `memory/` files for notable patterns or themes.
+6. Check if any tasks have been idle for more than 48 hours.
+7. Compose the morning briefing: weather first, then any actionable items.
 
 ## Weekly (first run on Monday)
 7. Run a memory cleanup pass:
