@@ -76,11 +76,12 @@ Read each template from `projects/remystack/skills/init/templates/` and replace 
 Create the memory directory and starter files:
 ```
 memory/
-  general.md        — "# General Knowledge\n\n(Empty — will be populated as you learn.)"
-  projects.md       — "# Projects\n\n(Empty — will be populated as you learn.)"
-  active-tasks.md   — "# Active Tasks\n\n(Empty — add tasks as they come up.)"
-  heartbeat-log.md  — "# Heartbeat Log\n\n"
-  pending-outbox.json — "[]"
+  general.md             — "# General Knowledge\n\n(Empty — will be populated as you learn.)"
+  projects.md            — "# Projects\n\n(Empty — will be populated as you learn.)"
+  active-tasks.md        — "# Active Tasks\n\n(Empty — add tasks as they come up.)"
+  heartbeat-log.md       — "# Heartbeat Log\n\n"
+  pending-outbox.json    — "[]"
+  conversation-log.jsonl — ""
 ```
 
 ## Step 4: Generate Systemd Units & Send Script
