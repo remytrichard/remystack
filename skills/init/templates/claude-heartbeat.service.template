@@ -6,12 +6,13 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory={{working_directory}}
-ExecStart={{claude_path}} --yes --prompt-file heartbeat-prompt.md
+ExecStart=/bin/bash -c 'cat heartbeat-prompt.md | {{claude_path}} --model {{heartbeat_model}} -p --dangerously-skip-permissions'
 TimeoutStartSec=300
 
 # Environment
 Environment=HOME={{home_directory}}
 Environment=PATH={{path}}
+Environment=CLAUDE_CODE_EFFORT_LEVEL={{heartbeat_effort}}
 
 # Logging
 StandardOutput=journal

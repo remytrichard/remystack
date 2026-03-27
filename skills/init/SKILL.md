@@ -84,7 +84,23 @@ memory/
   conversation-log.jsonl — ""
 ```
 
-## Step 4: Generate Systemd Units & Send Script
+## Step 4: Configure Model & Effort
+
+Ask the user how they want to allocate model resources. Explain the tradeoff briefly.
+
+1. **Listener model** — Model for Telegram conversations (default: "sonnet")
+   - Sonnet is cost-effective for most conversations; Opus can be invoked as a sub-agent for complex tasks
+2. **Listener effort** — Effort level for listener (default: "medium")
+   - Options: low, medium, high
+3. **Heartbeat model** — Model for scheduled heartbeat checks (default: "sonnet")
+   - Heartbeats do memory consolidation, so they need at least Sonnet-level capability
+4. **Heartbeat effort** — Effort level for heartbeat (default: "medium")
+
+Template variables: `{{listener_model}}`, `{{listener_effort}}`, `{{heartbeat_model}}`, `{{heartbeat_effort}}`
+
+Note: The user's interactive Claude Code sessions are unaffected — these settings only control the automated systemd services.
+
+## Step 5: Generate Systemd Units & Send Script
 
 Detect system values:
 - `claude_path`: run `which claude`
@@ -103,7 +119,7 @@ Generate from templates:
 - `claude-heartbeat.service` — write to working directory
 - `claude-heartbeat.timer` — write to working directory
 
-## Step 5: Install Systemd (ask first)
+## Step 6: Install Systemd (ask first)
 
 Ask: "Ready to install systemd services? This will:"
 - Copy service/timer files to `~/.config/systemd/user/`
@@ -115,7 +131,7 @@ Ask: "Ready to install systemd services? This will:"
 
 Only proceed if user confirms.
 
-## Step 6: Verify
+## Step 7: Verify
 
 - Check `systemctl --user is-active claude-telegram.service`
 - Check `systemctl --user is-active claude-telegram-watchdog.timer`
