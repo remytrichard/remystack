@@ -99,6 +99,16 @@ Template variables: `{{listener_model}}`, `{{listener_effort}}`, `{{heartbeat_mo
 
 Note: The user's interactive Claude Code sessions are unaffected — these settings only control the automated systemd services.
 
+## Step 4b: Check Global Plugin Settings
+
+**Important**: The Telegram plugin must NOT be in the user's global `~/.claude/settings.json` `enabledPlugins`. If it is, every Claude Code session (ad-hoc, heartbeat, etc.) will spawn a competing `getUpdates` poller, causing HTTP 409 conflicts and message drops.
+
+Check `~/.claude/settings.json` for `telegram@claude-plugins-official`:
+- If present and `true`: warn the user and offer to remove it. Explain: "The listener service loads the plugin exclusively via `--settings` on the command line. Having it in global settings causes every Claude session to start a competing Telegram poller."
+- If absent or `false`: good, no action needed.
+
+The listener's systemd service uses `--settings '{"enabledPlugins":{"telegram@claude-plugins-official":true}}'` to load the plugin only for that one process.
+
 ## Step 5: Generate Systemd Units & Send Script
 
 Detect system values:

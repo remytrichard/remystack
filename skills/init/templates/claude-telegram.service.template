@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory={{working_directory}}
-ExecStart=/usr/bin/tmux new-session -ds {{tmux_session_name}} "{{claude_path}} --model {{listener_model}} --channels plugin:telegram@claude-plugins-official --dangerously-skip-permissions --agent projects/remystack/agents/telegram-companion.md"
+ExecStart=/usr/bin/tmux new-session -ds {{tmux_session_name}} "{{claude_path}} --model {{listener_model}} --settings '{\"enabledPlugins\":{\"telegram@claude-plugins-official\":true}}' --channels plugin:telegram@claude-plugins-official --dangerously-skip-permissions --agent projects/remystack/agents/telegram-companion.md"
 ExecStop=/usr/bin/tmux kill-session -t {{tmux_session_name}}
 TimeoutStopSec=30
 
