@@ -6,7 +6,7 @@ Inspired by [OpenClaw](https://learnopenclaw.com)'s architecture — SOUL/IDENTI
 
 ## Prerequisites
 
-- **Claude Code** with the Telegram channel plugin enabled
+- **Claude Code** with the Telegram channel plugin installed (do **not** enable it globally — the listener loads it via `--settings`)
 - **tmux** — the listener runs inside a tmux session so you can attach/detach at will
 - **curl** + **jq** — used by the heartbeat to send Telegram messages via Bot API
 - **systemd (user units)** — for service management (`systemctl --user`). Linux only; macOS users can run the listener manually.
@@ -40,14 +40,14 @@ The wizard will guide you through:
 
 ## Architecture
 
-- **Listener** (`claude-telegram.service`): Long-running Claude Code with `--channels plugin:telegram@claude-plugins-official`, running inside a tmux session for attach/detach. Uses the `telegram-companion` agent.
+- **Listener** (`claude-telegram.service`): Long-running Claude Code with `--settings '{"enabledPlugins":...}'` + `--channels plugin:telegram@claude-plugins-official`, running inside a tmux session for attach/detach. Uses the `telegram-companion` agent. The plugin is loaded exclusively by the listener via `--settings` to prevent competing `getUpdates` pollers from ad-hoc sessions.
 - **Watchdog** (`claude-telegram-watchdog.timer`): Checks every 2 minutes that the tmux session is alive; restarts the listener service if it's gone.
 - **Heartbeat** (`claude-heartbeat.service` + `.timer`): Oneshot Claude Code that runs every 30 minutes. Checks tasks, memory, and sends proactive Telegram messages via curl/Bot API.
 - **Outbox** (`memory/pending-outbox.json`): Bridges context between heartbeat and listener. Heartbeat writes entries before sending; listener reads them when handling follow-up replies.
 
 ## Key Design Decisions
 
-- Only the listener uses `--channels` (avoids HTTP 409 polling conflicts)
+- Only the listener loads the Telegram plugin (via `--settings`) and registers channels (via `--channels`) — prevents HTTP 409 polling conflicts from ad-hoc or heartbeat sessions that share the same project directory
 - Heartbeat sends via curl/Bot API (`send_telegram.sh`) — stateless, no polling
 - No `RuntimeMaxSec` — avoids SIGTERM mid-task; Claude self-exits via `/loop` when idle
 - `OnCalendar` timer (not `OnUnitActiveSec`) — reliable `Persistent=true` catch-up after downtime
