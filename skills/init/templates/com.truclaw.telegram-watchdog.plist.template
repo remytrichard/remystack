@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.truclaw.{{agent_label}}.telegram-watchdog</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>if ! {{tmux_path}} has-session -t {{tmux_session_name}} 2>/dev/null; then {{tmux_path}} new-session -ds {{tmux_session_name}} "{{claude_path}} --model {{listener_model}} --settings '{\"enabledPlugins\":{\"telegram@claude-plugins-official\":true}}' --channels plugin:telegram@claude-plugins-official --dangerously-skip-permissions --agent {{working_directory}}/projects/remystack/agents/telegram-companion.md"; fi</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>{{working_directory}}</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{home_directory}}</string>
+        <key>PATH</key>
+        <string>{{path}}</string>
+        <key>CLAUDE_CODE_EFFORT_LEVEL</key>
+        <string>{{listener_effort}}</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>120</integer>
+
+    <key>StandardOutPath</key>
+    <string>{{home_directory}}/.local/log/truclaw-watchdog.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{home_directory}}/.local/log/truclaw-watchdog.err</string>
+</dict>
+</plist>
