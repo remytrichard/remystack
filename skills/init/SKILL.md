@@ -13,12 +13,14 @@ allowed-tools:
   - Bash(chmod *)
   - Bash(systemctl --user *)
   - Bash(loginctl *)
+  - Bash(find *)
+  - Bash(claude *)
   - AskUserQuestion
 ---
 
-# /remystack:init — Companion Setup Wizard
+# /truclaw:init — Companion Setup Wizard
 
-You are running the remystack init wizard. Guide the user through setting up their persistent Telegram AI companion.
+You are running the truclaw init wizard. Guide the user through setting up their persistent Telegram AI companion.
 
 Arguments passed: `$ARGUMENTS`
 
@@ -40,7 +42,33 @@ Check each with `which <tool>`. For any missing tool:
 
 Only proceed to Step 1 once all prerequisites are satisfied.
 
-## Step 1: Gather Identity
+## Step 1: Find Skill Directory
+
+First, determine the skill's own directory to locate templates. Run:
+```
+SKILL_DIR=$(find ~/.claude/plugins -name "init" -path "*/truclaw/*" -type d 2>/dev/null | head -1)
+```
+If that fails, try:
+```
+SKILL_DIR=$(cd "$(dirname "$(which claude)")/../plugins/truclaw/skills/init" 2>/dev/null && pwd)
+```
+If both fail, ask the user to locate their truclaw plugin installation.
+
+## Step 2: Check Claude Channels Plugin
+
+Verify the Telegram channels plugin is installed. Claude Code 1.0.39+ includes the Telegram plugin via the `--channels` flag.
+
+1. Run `claude --help` to verify Claude Code is installed
+2. Test channels availability: `claude --channels plugin:telegram@claude-plugins-official --dangerously-skip-permissions -p "test"`
+
+If the channels plugin is not available:
+- On Linux: The plugin should be bundled with Claude Code 1.0.39+
+- On macOS: Install via `brew install claude-code` or download from claude.ai/desktop
+- If still unavailable, tell the user to run `claude --channels plugin:telegram@claude-plugins-official` manually to trigger plugin download
+
+Proceed once the channels plugin is confirmed working. If reinstalling and Telegram is already configured, you may skip this step.
+
+## Step 3: Gather Identity
 
 Ask the user for the following (suggest sensible defaults):
 
@@ -52,7 +80,7 @@ Ask the user for the following (suggest sensible defaults):
 6. **Working style extras** — Any special working preferences? (default: "")
 7. **Primary focus** — What do you work on? (default: "engineering, automation, and technical projects")
 
-## Step 2: Gather User Profile
+## Step 4: Gather User Profile
 
 1. **Your name** — (required)
 2. **Timezone** — (default: detect from system)
@@ -61,9 +89,9 @@ Ask the user for the following (suggest sensible defaults):
 5. **Preferences** — What kind of answers do you like? (default: "Deep, technically rich answers with practical focus")
 6. **Constraints** — Any limitations on availability? (default: "")
 
-## Step 3: Scaffold Files
+## Step 5: Scaffold Files
 
-Read each template from `projects/remystack/skills/init/templates/` and replace `{{placeholders}}` with the user's answers. Write the following files to the working directory root:
+Read each template from `$SKILL_DIR/templates/` (or the found SKILL_DIR) and replace `{{placeholders}}` with the user's answers. Write the following files to the working directory root:
 
 - `SOUL.md` (from SOUL.template.md)
 - `IDENTITY.md` (from IDENTITY.template.md)
@@ -84,7 +112,7 @@ memory/
   conversation-log.jsonl — ""
 ```
 
-## Step 4: Configure Model & Effort
+## Step 6: Configure Model & Effort
 
 Ask the user how they want to allocate model resources. Explain the tradeoff briefly.
 
@@ -100,15 +128,16 @@ Template variables: `{{listener_model}}`, `{{listener_effort}}`, `{{heartbeat_mo
 
 Note: The user's interactive Claude Code sessions are unaffected — these settings only control the automated systemd services.
 
-## Step 5: Generate Systemd Units & Send Script
+## Step 7: Generate Systemd Units & Send Script
 
 Detect system values:
 - `claude_path`: run `which claude`
 - `home_directory`: use `$HOME`
 - `working_directory`: use current working directory (pwd)
 - `path`: use current `$PATH`
-- `bot_token`: read from `~/.claude/channels/telegram/.env` (TELEGRAM_BOT_TOKEN)
-- `chat_id`: read from `~/.claude/channels/telegram/access.json` (first entry in allowFrom)
+- `agent_path`: derive from SKILL_DIR using `AGENT_PATH=$(dirname "$(dirname "$SKILL_DIR")")/agents/telegram-companion.md`
+- `bot_token`: read from `~/.claude/channels/telegram/.env` (TELEGRAM_BOT_TOKEN). If file doesn't exist, ask the user for the token or prompt them to run `claude --channels plugin:telegram@claude-plugins-official` to set it up.
+- `chat_id`: read from `~/.claude/channels/telegram/access.json` (first entry in allowFrom). If file doesn't exist, ask the user for their Telegram user ID.
 - `tmux_session_name`: derive from agent name, lowercased and hyphenated (e.g. "Jarvis" → "jarvis-telegram")
 
 Generate from templates:
@@ -119,7 +148,7 @@ Generate from templates:
 - `claude-heartbeat.service` — write to working directory
 - `claude-heartbeat.timer` — write to working directory
 
-## Step 6: Install Systemd (ask first)
+## Step 8: Install Systemd (ask first)
 
 Ask: "Ready to install systemd services? This will:"
 - Copy service/timer files to `~/.config/systemd/user/`
@@ -131,7 +160,7 @@ Ask: "Ready to install systemd services? This will:"
 
 Only proceed if user confirms.
 
-## Step 7: Verify
+## Step 9: Verify
 
 - Check `systemctl --user is-active claude-telegram.service`
 - Check `systemctl --user is-active claude-telegram-watchdog.timer`

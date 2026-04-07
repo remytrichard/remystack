@@ -10,10 +10,11 @@ allowed-tools:
   - Bash(cp *)
   - Bash(which *)
   - Bash(chmod *)
+  - Bash(find *)
   - AskUserQuestion
 ---
 
-# /remystack:update — Update & Redeploy
+# /truclaw:update — Update & Redeploy
 
 Stop services, regenerate configuration from templates, reinstall, and restart.
 
@@ -28,8 +29,11 @@ Arguments passed: `$ARGUMENTS`
    ```
 
 2. **Regenerate files** from templates:
-   - Re-read all templates from `projects/remystack/skills/init/templates/`
+   - Detect SKILL_DIR: `SKILL_DIR=$(find ~/.claude/plugins -name "init" -path "*/truclaw/*" -type d 2>/dev/null | head -1)`
+   - Derive agent path: `AGENT_PATH=$(dirname "$(dirname "$SKILL_DIR")")/agents/telegram-companion.md`
+   - Re-read all templates from `$SKILL_DIR/templates/` directory
    - Detect current system values (claude path, working dir, bot token, etc.)
+   - Use `agent_path` template variable when rendering systemd units
    - Re-render systemd units and send_telegram.sh with current values
    - Write updated files to working directory
 
@@ -45,7 +49,7 @@ Arguments passed: `$ARGUMENTS`
    systemctl --user enable --now claude-heartbeat.timer
    ```
 
-5. **Verify** using the same checks as `/remystack:status`.
+5. **Verify** using the same checks as `/truclaw:status`.
 
 ## Notes
 - Always stop before updating to avoid stale processes.

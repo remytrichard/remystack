@@ -10,9 +10,9 @@ allowed-tools:
   - Glob
 ---
 
-# /remystack:status — System Health Check
+# /truclaw:status — System Health Check
 
-Check the health of all remystack services and report status.
+Check the health of all truclaw services and report status.
 
 Arguments passed: `$ARGUMENTS`
 

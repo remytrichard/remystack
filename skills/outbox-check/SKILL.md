@@ -8,7 +8,7 @@ allowed-tools:
   - Edit
 ---
 
-# /remystack:outbox-check — Check Pending Outbox
+# /truclaw:outbox-check — Check Pending Outbox
 
 Read `memory/pending-outbox.json` and provide context from recent heartbeat messages.
 
