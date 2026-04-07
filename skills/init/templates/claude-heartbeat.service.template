@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory={{working_directory}}
 ExecStart=/bin/bash -c 'cat heartbeat-prompt.md | {{claude_path}} --model {{heartbeat_model}} -p --dangerously-skip-permissions'
-TimeoutStartSec=300
+TimeoutStartSec=3600
 
 # Environment
 Environment=HOME={{home_directory}}
