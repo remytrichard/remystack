@@ -10,7 +10,7 @@ allowed-tools:
   - Grep
 ---
 
-# /remystack:memory-sync — Persist Facts to Memory
+# /truclaw:memory-sync — Persist Facts to Memory
 
 Identify facts worth remembering from the current conversation context and persist them.
 

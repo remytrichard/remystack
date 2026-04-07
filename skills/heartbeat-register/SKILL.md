@@ -10,7 +10,7 @@ allowed-tools:
   - Skill
 ---
 
-# /remystack:heartbeat-register — Register Self-Exit Loop
+# /truclaw:heartbeat-register — Register Self-Exit Loop
 
 Set up the `/loop` self-exit cycle for the Telegram listener session.
 

@@ -9,7 +9,7 @@
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>if ! {{tmux_path}} has-session -t {{tmux_session_name}} 2>/dev/null; then {{tmux_path}} new-session -ds {{tmux_session_name}} "{{claude_path}} --model {{listener_model}} --settings '{\"enabledPlugins\":{\"telegram@claude-plugins-official\":true}}' --channels plugin:telegram@claude-plugins-official --dangerously-skip-permissions --agent {{working_directory}}/projects/remystack/agents/telegram-companion.md"; fi</string>
+        <string>if ! {{tmux_path}} has-session -t {{tmux_session_name}} 2>/dev/null; then {{tmux_path}} new-session -ds {{tmux_session_name}} "{{claude_path}} --model {{listener_model}} --settings '{\"enabledPlugins\":{\"telegram@claude-plugins-official\":true}}' --channels plugin:telegram@claude-plugins-official --dangerously-skip-permissions --agent {{agent_path}}"; fi</string>
     </array>
 
     <key>WorkingDirectory</key>
