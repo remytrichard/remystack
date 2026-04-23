@@ -7,7 +7,7 @@ on:
     inputs:
       pr_number:
         description: 'PR number to review (for manual testing)'
-        required: false
+        required: true
         type: string
 
 permissions:
@@ -32,71 +32,108 @@ jobs:
 
       # ------------------------------------------------------------------
       # 2. For manual dispatch, checkout the PR branch so HEAD points to it
+      #    SECURITY: pr_number is passed via env to avoid shell injection.
       # ------------------------------------------------------------------
       - name: Checkout PR branch (manual dispatch)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != ''
         run: |
-          gh pr checkout "${{ github.event.inputs.pr_number }}"
+          set -euo pipefail
+          gh pr checkout "$PR_NUMBER"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
 
       # ------------------------------------------------------------------
       # 3. Resolve PR number and base ref (used by both triggers)
+      #    SECURITY: All dynamic values are passed via env vars.
       # ------------------------------------------------------------------
       - name: Resolve PR context
         id: pr-context
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-            echo "base_ref=${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
           else
-            PR_NUMBER="${{ github.event.inputs.pr_number }}"
-            if [ -z "$PR_NUMBER" ]; then
+            if [ -z "$INPUT_PR_NUMBER" ]; then
               echo "Error: workflow_dispatch requires a pr_number input." >&2
               exit 1
             fi
-            BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName)
-            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            BASE_REF=$(gh pr view "$INPUT_PR_NUMBER" --json baseRefName -q .baseRefName)
+            echo "pr_number=$INPUT_PR_NUMBER" >> "$GITHUB_OUTPUT"
             echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number }}
+          BASE_REF: ${{ github.base_ref }}
 
       # ------------------------------------------------------------------
       # 4. Generate diff between base branch and PR HEAD
       #    Excludes common generated directories to keep size down.
+      #    SECURITY: base_ref is passed via env to avoid shell injection.
       # ------------------------------------------------------------------
       - name: Generate diff
         id: diff
         run: |
-          BASE_REF="${{ steps.pr-context.outputs.base_ref }}"
+          set -euo pipefail
           git fetch origin "$BASE_REF"
 
+          # Do not mask errors with || true; let set -e catch real failures.
           git diff "origin/${BASE_REF}...HEAD" -- . \
             ':!node_modules' \
             ':!vendor' \
-            ':!*.lock' > pr_diff.txt || true
+            ':!*.lock' > pr_diff.txt
 
           DIFF_SIZE=$(wc -c < pr_diff.txt)
           echo "diff_size=$DIFF_SIZE" >> "$GITHUB_OUTPUT"
           echo "Diff size: $DIFF_SIZE bytes"
+        env:
+          BASE_REF: ${{ steps.pr-context.outputs.base_ref }}
 
       # ------------------------------------------------------------------
       # 5. Cost control: skip review if diff exceeds safe token limit
       #    ~50K tokens ≈ 200K bytes (4 chars/token). We cap at 150K bytes
       #    to leave headroom for the system prompt and model response.
+      #    Also detects empty diffs to avoid wasteful API calls.
       # ------------------------------------------------------------------
       - name: Check diff size limit
         id: size-check
         run: |
+          set -euo pipefail
           MAX_SIZE=150000
-          SIZE=${{ steps.diff.outputs.diff_size }}
+          SIZE="$DIFF_SIZE"
+          if [ "$SIZE" -eq 0 ]; then
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+            echo "No reviewable changes found."
+          else
+            echo "empty=false" >> "$GITHUB_OUTPUT"
+          fi
           if [ "$SIZE" -gt "$MAX_SIZE" ]; then
             echo "too_large=true" >> "$GITHUB_OUTPUT"
             echo "Diff too large ($SIZE bytes > $MAX_SIZE bytes). Skipping AI review."
           else
             echo "too_large=false" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          DIFF_SIZE: ${{ steps.diff.outputs.diff_size }}
+
+      # ------------------------------------------------------------------
+      # 5b. Notify PR when diff is empty (no reviewable changes)
+      # ------------------------------------------------------------------
+      - name: Post skip comment (no changes)
+        if: steps.size-check.outputs.empty == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: ${{ steps.pr-context.outputs.pr_number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "## 🤖 AI Code Review\n\nNo reviewable changes found."
+            })
 
       # ------------------------------------------------------------------
       # 6. Notify PR when diff is too large
@@ -119,7 +156,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Call OpenRouter for review
         id: openrouter
-        if: steps.size-check.outputs.too_large == 'false'
+        if: steps.size-check.outputs.too_large == 'false' && steps.size-check.outputs.empty == 'false'
         run: |
           set -euo pipefail
 
@@ -129,7 +166,7 @@ jobs:
           jq -n \
             --arg diff "$DIFF_CONTENT" \
             '{
-              model: "qwen/qwen3.5-plus-02-15",
+              model: "qwen/qwen-2.5-coder-32b-instruct",
               messages: [
                 {
                   role: "system",
@@ -143,11 +180,12 @@ jobs:
             }' > payload.json
 
           RESPONSE_FILE=$(mktemp)
-          HTTP_CODE=$(curl -s -o "$RESPONSE_FILE" -w "%{http_code}" \
+          # Timeouts prevent hanging if OpenRouter is unreachable.
+          HTTP_CODE=$(curl --max-time 120 --connect-timeout 30 -s -o "$RESPONSE_FILE" -w "%{http_code}" \
             https://openrouter.ai/api/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $OPENROUTER_API_KEY" \
-            -H "HTTP-Referer: https://github.com/${{ github.repository }}" \
+            -H "HTTP-Referer: https://github.com/${REPOSITORY}" \
             -H "X-Title: AI Code Review" \
             -d @payload.json)
 
@@ -155,27 +193,36 @@ jobs:
 
           if [ "$HTTP_CODE" -ne 200 ]; then
             echo "OpenRouter API call failed (HTTP $HTTP_CODE)" >&2
-            cat "$RESPONSE_FILE" >&2
+            # Only emit safe error fields to avoid leaking secrets in logs.
+            jq -r '.error.message // "Unknown error"' "$RESPONSE_FILE" >&2
             rm -f "$RESPONSE_FILE"
             exit 1
           fi
 
-          jq -r '.choices[0].message.content' "$RESPONSE_FILE" > review.md
+          # Validate response shape before writing to file.
+          if ! jq -er '.choices[0].message.content' "$RESPONSE_FILE" > review.md; then
+            echo "Invalid API response: missing choices[0].message.content" >&2
+            rm -f "$RESPONSE_FILE"
+            exit 1
+          fi
           rm -f "$RESPONSE_FILE"
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          REPOSITORY: ${{ github.repository }}
 
       # ------------------------------------------------------------------
       # 8. Post the structured review as a PR comment
+      #    Note: steps.openrouter.outcome check is unnecessary here;
+      #    this step only runs when the openrouter step succeeded.
       # ------------------------------------------------------------------
       - name: Post AI review comment
-        if: steps.size-check.outputs.too_large == 'false' && steps.openrouter.outcome == 'success'
+        if: steps.size-check.outputs.too_large == 'false' && steps.size-check.outputs.empty == 'false'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const review = fs.readFileSync('review.md', 'utf8');
-            const body = "## 🤖 AI Code Review (OpenRouter: qwen/qwen3.5-plus-02-15)\n\n" + review;
+            const body = "## 🤖 AI Code Review (OpenRouter: qwen/qwen-2.5-coder-32b-instruct)\n\n" + review;
             github.rest.issues.createComment({
               issue_number: ${{ steps.pr-context.outputs.pr_number }},
               owner: context.repo.owner,
