@@ -1,0 +1,200 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review (for manual testing)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ai-review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    # Skip draft PRs; always allow manual dispatch
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. Checkout repository with full history so we can compute the diff
+      # ------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ------------------------------------------------------------------
+      # 2. For manual dispatch, checkout the PR branch so HEAD points to it
+      # ------------------------------------------------------------------
+      - name: Checkout PR branch (manual dispatch)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != ''
+        run: |
+          gh pr checkout "${{ github.event.inputs.pr_number }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ------------------------------------------------------------------
+      # 3. Resolve PR number and base ref (used by both triggers)
+      # ------------------------------------------------------------------
+      - name: Resolve PR context
+        id: pr-context
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "base_ref=${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+            if [ -z "$PR_NUMBER" ]; then
+              echo "Error: workflow_dispatch requires a pr_number input." >&2
+              exit 1
+            fi
+            BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName)
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ------------------------------------------------------------------
+      # 4. Generate diff between base branch and PR HEAD
+      #    Excludes common generated directories to keep size down.
+      # ------------------------------------------------------------------
+      - name: Generate diff
+        id: diff
+        run: |
+          BASE_REF="${{ steps.pr-context.outputs.base_ref }}"
+          git fetch origin "$BASE_REF"
+
+          git diff "origin/${BASE_REF}...HEAD" -- . \
+            ':!node_modules' \
+            ':!vendor' \
+            ':!*.lock' > pr_diff.txt || true
+
+          DIFF_SIZE=$(wc -c < pr_diff.txt)
+          echo "diff_size=$DIFF_SIZE" >> "$GITHUB_OUTPUT"
+          echo "Diff size: $DIFF_SIZE bytes"
+
+      # ------------------------------------------------------------------
+      # 5. Cost control: skip review if diff exceeds safe token limit
+      #    ~50K tokens ≈ 200K bytes (4 chars/token). We cap at 150K bytes
+      #    to leave headroom for the system prompt and model response.
+      # ------------------------------------------------------------------
+      - name: Check diff size limit
+        id: size-check
+        run: |
+          MAX_SIZE=150000
+          SIZE=${{ steps.diff.outputs.diff_size }}
+          if [ "$SIZE" -gt "$MAX_SIZE" ]; then
+            echo "too_large=true" >> "$GITHUB_OUTPUT"
+            echo "Diff too large ($SIZE bytes > $MAX_SIZE bytes). Skipping AI review."
+          else
+            echo "too_large=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ------------------------------------------------------------------
+      # 6. Notify PR when diff is too large
+      # ------------------------------------------------------------------
+      - name: Post skip comment (diff too large)
+        if: steps.size-check.outputs.too_large == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: ${{ steps.pr-context.outputs.pr_number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "## 🤖 AI Code Review\n\nThe diff exceeds the safe size limit (~50K tokens). Skipping automated review to avoid token overflow and excessive cost. Consider splitting large PRs into smaller chunks."
+            })
+
+      # ------------------------------------------------------------------
+      # 7. Call OpenRouter LLM with the diff
+      #    SECURITY: The API key is passed via env var and never logged.
+      # ------------------------------------------------------------------
+      - name: Call OpenRouter for review
+        id: openrouter
+        if: steps.size-check.outputs.too_large == 'false'
+        run: |
+          set -euo pipefail
+
+          DIFF_CONTENT=$(cat pr_diff.txt)
+
+          # Build JSON payload safely with jq (handles escaping automatically)
+          jq -n \
+            --arg diff "$DIFF_CONTENT" \
+            '{
+              model: "qwen/qwen3.5-plus-02-15",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a senior code reviewer performing a structured review of a git diff.\n\nFormat your response exactly with these markdown sections:\n\n## Critical Issues\nList bugs, security vulnerabilities, or breaking changes. Be specific about files and line numbers if visible in the diff. If none, state \"None found.\"\n\n## Warnings\nList potential issues, anti-patterns, or risks. If none, state \"None found.\"\n\n## Suggestions\nList improvements for readability, performance, maintainability, or best practices. If none, state \"None found.\"\n\n## Looks Good\nList anything done well in this PR.\n\nBe concise. Use bullet points. Do not hallucinate issues that are not supported by the diff. If the PR is small and correct, say so."
+                },
+                {
+                  role: "user",
+                  content: ("Please review the following git diff:\n\n```diff\n" + $diff + "\n```")
+                }
+              ]
+            }' > payload.json
+
+          RESPONSE_FILE=$(mktemp)
+          HTTP_CODE=$(curl -s -o "$RESPONSE_FILE" -w "%{http_code}" \
+            https://openrouter.ai/api/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+            -H "HTTP-Referer: https://github.com/${{ github.repository }}" \
+            -H "X-Title: AI Code Review" \
+            -d @payload.json)
+
+          echo "http_code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "OpenRouter API call failed (HTTP $HTTP_CODE)" >&2
+            cat "$RESPONSE_FILE" >&2
+            rm -f "$RESPONSE_FILE"
+            exit 1
+          fi
+
+          jq -r '.choices[0].message.content' "$RESPONSE_FILE" > review.md
+          rm -f "$RESPONSE_FILE"
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      # ------------------------------------------------------------------
+      # 8. Post the structured review as a PR comment
+      # ------------------------------------------------------------------
+      - name: Post AI review comment
+        if: steps.size-check.outputs.too_large == 'false' && steps.openrouter.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review.md', 'utf8');
+            const body = "## 🤖 AI Code Review (OpenRouter: qwen/qwen3.5-plus-02-15)\n\n" + review;
+            github.rest.issues.createComment({
+              issue_number: ${{ steps.pr-context.outputs.pr_number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      # ------------------------------------------------------------------
+      # 9. If the API call failed, post a polite failure notice so the
+      #    PR author knows the review was attempted.
+      # ------------------------------------------------------------------
+      - name: Post failure comment (API error)
+        if: failure() && steps.openrouter.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: ${{ steps.pr-context.outputs.pr_number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "## 🤖 AI Code Review\n\nSorry, the AI review failed due to an API error. Please check the workflow logs for details."
+            })
